@@ -1,0 +1,23 @@
+# Node / npm
+node_modules/
+npm-debug.log*
+.npm/
+
+# Antora build output
+build/
+
+destination/
+
+source/*.docx
+
+antora/
+
+# Antora cache
+.antora-cache/
+
+# IDE
+.idea/
+*.iml
+
+# macOS
+.DS_Store
