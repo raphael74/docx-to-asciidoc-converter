@@ -35,7 +35,7 @@ runtime:
   log:
     # Fail the build on any Antora warning (duplicate IDs, "section title out
     # of sequence", unresolved xrefs, missing images, ...), so that
-    # `npm run build` cannot succeed with warnings.
+    # `yarn build` cannot succeed with warnings.
     failure_level: warn
 
 output:

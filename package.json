@@ -3,18 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "description": "Converts the DOCX to AsciiDoc and publishes it as an Antora site.",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
     "convert": "./convert-to-asciidoc.sh",
     "split": "node build-antora.js",
     "build:site": "antora antora-playbook.yml",
     "verify": "node verify-links.js",
-    "build": "npm run convert && npm run split && npm run build:site && npm run verify",
-    "serve": "npx --yes http-server build/site -o",
-    "preview": "npm run build && npm run serve"
+    "build": "yarn convert && yarn split && yarn build:site && yarn verify",
+    "serve": "http-server build/site -o",
+    "preview": "yarn build && yarn serve"
   },
   "devDependencies": {
     "@antora/cli": "^3.2.1",
     "@antora/site-generator": "^3.2.1",
-    "@antora/lunr-extension": "latest"
+    "@antora/lunr-extension": "latest",
+    "http-server": "^14.1.1"
   }
 }

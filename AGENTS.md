@@ -29,28 +29,28 @@ source/*.docx  --pandoc-->  destination/<name>/<name>.adoc  --build-antora.js-->
 | `antora/antora.yml`                                                                   | Hand-edited, **except its `nav:` list**, which `build-antora.js` rewrites on every run. |
 
 Never fix a content problem by editing files under `destination` or
-`antora/modules` — the next `npm run build` overwrites them. Change the
+`antora/modules` — the next `yarn build` overwrites them. Change the
 DOCX, or change the script that generates the file, instead.
 
 ## Commands
 
 ```sh
-npm install            # once
-npm run build          # convert -> split -> build site -> verify (the full pipeline)
-npm run preview        # build, then serve build/site/ in a browser
+yarn install          # once
+yarn build            # convert -> split -> build site -> verify (the full pipeline)
+yarn preview          # build, then serve build/site/ in a browser
 ```
 
 Individual stages, in order:
 
 ```sh
-npm run convert        # source/*.docx -> destination/<name>/<name>.adoc + destination/<name>/media/ (pandoc)
-npm run split          # destination/<name>/<name>.adoc -> antora/modules/<module>/ (build-antora.js)
-npm run build:site     # Antora -> build/site/
-npm run verify         # check every anchor and xref in every module resolves (verify-links.js)
-npm run serve          # serve the already-built site
+yarn convert          # source/*.docx -> destination/<name>/<name>.adoc + destination/<name>/media/ (pandoc)
+yarn split            # destination/<name>/<name>.adoc -> antora/modules/<module>/ (build-antora.js)
+yarn build:site       # Antora -> build/site/
+yarn verify           # check every anchor and xref in every module resolves (verify-links.js)
+yarn serve            # serve the already-built site
 ```
 
-`npm run build` is the definition of "done": it must finish with
+`yarn build` is the definition of "done": it must finish with
 `All anchors and xrefs resolve correctly (N modules checked).` and no Antora
 warnings. Always run it after any change to the scripts, the playbook, or a
 DOCX.
@@ -58,7 +58,11 @@ DOCX.
 ## Environment requirements
 
 - `pandoc` on `PATH` (the convert script fails fast if it is missing).
-- Node.js 18+ / npm.
+- Node.js 18+ / Yarn Classic 1.x. The version is pinned via `packageManager`
+  in `package.json`, so corepack (bundled with Node) downloads the right
+  Yarn on demand. **Use Yarn, not npm:** the project has a `yarn.lock` and
+  deliberately no `package-lock.json`; running `npm install` would recreate
+  one and drift from the committed lockfile.
 - This directory **must remain a git repository.** Antora rejects a local
   content source that is not a git repo. Do not delete or re-initialise `.git`.
   The playbook uses `branches: HEAD`, so uncommitted working-tree files are
@@ -161,7 +165,7 @@ built HTML of every module and fails if any `xref:` (including the
 module-qualified form `xref:module:page.adoc`) or `<<anchor>>` in any page or
 `nav.adoc` points at a missing page or element ID. It reads the component name
 and version from `antora/antora.yml` to locate the site folder. It exits
-non-zero on failure, which fails `npm run build`.
+non-zero on failure, which fails `yarn build`.
 
 ## Conventions and constraints
 
@@ -180,7 +184,7 @@ non-zero on failure, which fails `npm run build`.
 - **`idprefix` / `idseparator` are load-bearing.** `antora-playbook.yml` sets
   `idprefix: ''` and `idseparator: '-'` so Asciidoctor's generated IDs match the
   slugs `build-antora.js` writes into xrefs. Changing these silently breaks
-  every internal link (and will be caught by `npm run verify`).
+  every internal link (and will be caught by `yarn verify`).
 - **Numbering scheme.** Chapter (page) titles keep the fixed numbers from the
   source document (1–8), stored in the heading plan. Section numbers inside a
   page are **not** stored — they come from Asciidoctor's `sectnums`, which
@@ -205,7 +209,7 @@ non-zero on failure, which fails `npm run build`.
   it disambiguates repeated titles (`einleitung-1`, `einleitung-2`). The
   alignment logic in `build-antora.js` walks the ToC and the headings in
   document order to pair them; if you change that logic, re-run
-  `npm run build` and confirm the "matched N of M ToC entries" warning (which
+  `yarn build` and confirm the "matched N of M ToC entries" warning (which
   names the affected document) does not appear.
 - Non-ASCII characters in headings (e.g. the `🡪` arrow in some titles) can
   produce odd IDs. Pinned anchors already handle this; do not remove them.
@@ -214,9 +218,35 @@ non-zero on failure, which fails `npm run build`.
   have a different ToC shape or bookmark naming, so check its warnings and
   built pages the first time it goes through the pipeline.
 
+## Known security advisories (accepted risk — do not "fix" blindly)
+
+- `yarn audit` (Yarn Classic uses the same advisory database as `npm audit`)
+  reports **5 high-severity findings, all from one advisory**:
+  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+  (CVE-2026-93687) — `braces` through 3.0.3 is vulnerable to stack exhaustion
+  from deeply nested brace patterns. It reaches us only via Antora's
+  transitive dependencies (`content-aggregator`/`ui-loader` → `fast-glob` →
+  `micromatch` → `braces`). (The finding count is per dependency path and
+  differs between audit tools; it has always been this one advisory.)
+- **Why it stays:** 3.0.3 is the latest published `braces`; the advisory
+  affects *all* versions and upstream has released no fix, so no audit tool
+  offers one. There is nothing to upgrade to, and pinning a
+  fork of a transitive dependency would create more risk than the advisory
+  itself.
+- **Why it is acceptable here:** it is a build-time DoS in a devDependency.
+  Triggering it requires the glob patterns fed to `braces` to be attacker
+  controlled; every pattern in this pipeline comes from hand-edited repo
+  files (the playbook, Antora internals), so anyone who could craft a
+  malicious glob could already edit the build scripts directly. The
+  published site and its readers are not affected at all.
+- **What to do:** if a `braces` release **> 3.0.3** appears, upgrade and
+  re-run `yarn audit` — the findings should disappear. Do not add Yarn
+  `resolutions`, vendored copies, or patches for this advisory in the
+  meantime; document-and-wait was a deliberate decision.
+
 ## Before you finish
 
-1. `npm run build` — must print
+1. `yarn build` — must print
    `All anchors and xrefs resolve correctly (N modules checked).`
 2. Confirm Antora reported **zero** warnings (duplicate IDs and
    "section title out of sequence" both indicate a regression), and that the

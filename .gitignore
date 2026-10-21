@@ -1,7 +1,7 @@
-# Node / npm
+# Node / Yarn
 node_modules/
-npm-debug.log*
-.npm/
+yarn-debug.log*
+yarn-error.log*
 
 # Antora build output
 build/

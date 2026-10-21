@@ -28,11 +28,11 @@ if (fs.existsSync(DESCRIPTOR_FILE)) {
 const SITE_DIR = path.join(ROOT, 'build', 'site', componentName, componentVersion);
 
 if (!fs.existsSync(SITE_DIR)) {
-    console.error(`Error: built site not found at ${SITE_DIR}. Run 'npm run build' first.`);
+    console.error(`Error: built site not found at ${SITE_DIR}. Run 'yarn build' first.`);
     process.exit(1);
 }
 if (!fs.existsSync(MODULES_DIR)) {
-    console.error(`Error: generated modules not found at ${MODULES_DIR}. Run 'npm run split' first.`);
+    console.error(`Error: generated modules not found at ${MODULES_DIR}. Run 'yarn split' first.`);
     process.exit(1);
 }
 
