@@ -209,8 +209,27 @@ non-zero on failure, which fails `yarn build`.
 
 - Pandoc emits malformed figure captions like
   `.[#_Ref100587667 .anchor]####Abbildung : Übersicht`. `transformBody`
-  normalises these to plain captions; the `_Ref…`/`_Toc…` bookmark targets are
-  dropped.
+  normalises these to plain captions and drops the `_Ref…`/`_Toc…` bookmark
+  targets. Asciidoctor numbers figures per page, restarting at 1 for every
+  chapter page. Because the body text still carries Word's document-wide figure
+  numbers ("Abbildung 25"), `transformBody` reads the document's
+  `Abbildungsverzeichnis` to map bookmarks to figures, counts the figures per
+  chapter to get their page-local number, and rewrites both linked and bare
+  references. Table captions rely on `table-caption: Tabelle`; Word's own
+  `Tabelle :` label is stripped.
+- Pandoc sometimes emits a figure as an inline `image:` followed by its caption
+  (Word anchored the image). `transformBody` promotes these to a block `image::`
+  with the caption above it, so Asciidoctor renders a real figure. Some of those
+  images sit in a two-column layout table that pandoc marked
+  `options="header"`; because header cells are parsed as inline-only, the header
+  option is dropped when the first cell contains an image.
+- The same anchored image can appear twice: once inline in the paragraph and
+  again as `{empty}[#_Ref… .anchor]####image:…` with the caption on the next
+  block. `transformBody` folds that pair into a single block figure and drops
+  the duplicate inline image, mapping both bookmarks to the same page-local
+  figure number. Without this the `####` line renders as literal text, the
+  caption is not counted as a figure and every later figure number on that page
+  is off by one.
 - Some document links point at Word bookmarks that no longer exist. These are
   reduced to their plain link text rather than left as broken links.
 - The ToC does not list every heading (deeper levels and a few omissions), and

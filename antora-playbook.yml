@@ -30,6 +30,13 @@ asciidoc:
     sectnums: ''
     # Asciidoctor supports 0-5; the generated pages go four levels deep.
     sectnumlevels: 5
+    # The documents are German; use German labels for generated captions
+    # instead of Asciidoctor's defaults ("Figure", "Table").
+    table-caption: Tabelle
+    # Asciidoctor numbers figures per page, restarting at 1 for each chapter
+    # page (like `sectnums`). build-antora.js rewrites the body references to
+    # those page-local numbers.
+    figure-caption: Abbildung
 
 runtime:
   log:

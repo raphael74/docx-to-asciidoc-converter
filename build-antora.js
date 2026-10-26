@@ -333,6 +333,26 @@ function convertDocument(doc, moduleName) {
         tocEntries.push({anchor: m[1], number: m[2], title: m[3].trim()});
     }
 
+    // -------------------------------------------------------------------------
+    // Recover the original figure numbering from the figure index.
+    // Word numbers figures document-wide (1..N), and the body text refers to
+    // those numbers ("Abbildung 25"). Most captions lost their number during
+    // conversion, but the "Abbildungsverzeichnis" entries still carry it:
+    //   link:#_Ref123[Abbildung 5: Title link:#_Ref123[40]]
+    // The bookmark target is the same one the caption and its references use.
+    // -------------------------------------------------------------------------
+
+    /** Map of figure bookmark target -> original document-wide figure number. */
+    const figureNumbers = new Map();
+
+    for (const line of lines) {
+        const m =
+            /^\s*link:#([^\s\[]+)\[Abbildung\s+\*?(\d+)\*?(?=[:\s]).*link:#\1\[\d+\]\]\s*$/.exec(
+                line
+            );
+        if (m) figureNumbers.set(m[1], m[2]);
+    }
+
     // The ToC lists chapters and level 3/4 headings (source `==`, `===`,
     // `====`), but not the deeper level 5/6 headings, and it occasionally omits a
     // heading. The two lists are aligned by walking them in order and matching
@@ -395,6 +415,39 @@ function convertDocument(doc, moduleName) {
             anchor: numbering ? numbering.anchor : slugify(rawTitle),
         };
     });
+
+    // Asciidoctor numbers figures per page, restarting at 1 for every chapter
+    // page. Body references have to use those same page-local numbers, so walk
+    // the figures in document order per chapter and remember where each
+    // bookmark ends up.
+    /** Map of figure bookmark target -> { page, number } (page-local number). */
+    const figureLocations = new Map();
+
+    for (const ch of chapters) {
+        let number = 0;
+        for (let i = ch.startLine; i < ch.endLine; i++) {
+            const m = /\[#([A-Za-z0-9_.:-]+)\s+\.anchor\]#{2,6}Abbildung\b/.exec(lines[i]);
+            if (!m) continue;
+            number++;
+            figureLocations.set(m[1], {page: ch.base, number});
+
+            // Pandoc sometimes writes the figure's image on a separate
+            // `{empty}` line with its own bookmark, directly above the caption
+            // (see the normalization in transformBody). Both bookmarks refer to
+            // the same figure, so map the image bookmark to the same number.
+            for (let j = i - 1; j >= ch.startLine; j--) {
+                if (lines[j].trim() === '') continue;
+                const imageAnchor =
+                    /\[#([A-Za-z0-9_.:-]+)\s+\.anchor\]#{2,6}image:/.exec(lines[j]);
+                if (imageAnchor) figureLocations.set(imageAnchor[1], {page: ch.base, number});
+                break;
+            }
+        }
+    }
+
+    /** Map of original document-wide figure number -> bookmark target. */
+    const figureAnchorByNumber = new Map();
+    for (const [anchor, number] of figureNumbers) figureAnchorByNumber.set(number, anchor);
 
     // The references table is also a source of links for the body: every
     // bracketed reference name is linked to its row. This runs before the
@@ -465,6 +518,16 @@ function convertDocument(doc, moduleName) {
     // Transform a chapter body
     // -------------------------------------------------------------------------
 
+    /**
+     * Rewrites the document-wide figure number in a reference label
+     * ("Abbildung 25" / "Abbildung *1*") to its page-local number, keeping any
+     * emphasis markers around the number.
+     */
+    const renumberFigureLabel = (label, number) =>
+        label.replace(/^(\s*Abbildung\s+)(\*?)\d+(\*?)/i, (match, prefix, open, close) =>
+            `${prefix}${open}${number}${close}`
+        );
+
     function transformBody(body, chapter, bodyStartLine) {
         let text = body;
 
@@ -485,19 +548,135 @@ function convertDocument(doc, moduleName) {
         }
         text = bodyLinesArr.join('\n');
 
+        // 0c. Pandoc writes an image that Word anchored to a paragraph twice: as
+        //     an inline image in the paragraph and again on a separate `{empty}`
+        //     line that carries the bookmark plus a `####` marker:
+        //       {empty}[#_Ref123 .anchor]####image:./media/image9.png[...]
+        //
+        //       [#_Toc456 .anchor]####Abbildung : Title
+        //     The `####` line is not valid AsciiDoc, so it would render as
+        //     literal text and the caption would be attached to the following
+        //     paragraph instead of an image. That also desynchronises the
+        //     per-page figure numbering. Turn the pair into a real figure and
+        //     drop the duplicate inline image from the paragraph.
+        const cleanCaption = (caption) =>
+            caption.replace(/^(?:Abbildung|Tabelle)\b\s*(?:\d+\s*)?:?\s*/i, '').trim();
+
+        const promotedFigureAnchors = [];
+
+        text = text.replace(
+            /^\{empty\}\[#([A-Za-z0-9_.:-]+)\s+\.anchor\]#{2,6}image:([^\s\[]+)\[([^\]]*)\][^\n]*\n(?:\s*\n)*\[#[A-Za-z0-9_.:-]+\s+\.anchor\]#{2,6}((?:Abbildung|Tabelle)\b[^\n]*)$/gm,
+            (match, anchor, path, attrs, caption) => {
+                promotedFigureAnchors.push(anchor);
+                const cleaned = cleanCaption(caption);
+                return cleaned ? `.${cleaned}\nimage::${path}[${attrs}]` : `image::${path}[${attrs}]`;
+            }
+        );
+
+        for (const anchor of promotedFigureAnchors) {
+            const escaped = anchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // The inline copy may still be wrapped in a Word hyperlink; drop the
+            // whole link (including its nested image attribute brackets).
+            text = text.replace(
+                new RegExp(`link:#${escaped}\\[image:(?:[^\\[\\]]|\\[[^\\]]*\\])*\\]\\s*`, 'g'),
+                ''
+            );
+        }
+
         // 1. Normalize pandoc's broken figure caption blocks. Pandoc emits e.g.
         //      .[#_Ref100587667 .anchor]####Abbildung : Übersicht ...
         //    or
         //      [#_Ref347235091 .anchor]####Abbildung 5: Übersicht ...
         //    as an anchor + a "####" that should be a caption. Rewrite to a plain
         //    caption paragraph.
+        //
+        //    Word keeps the caption's own "Abbildung"/"Tabelle" prefix (with an
+        //    optional number and colon). Asciidoctor prepends the configured
+        //    figure/table caption and a generated number, so keeping the prefix
+        //    would render it twice. Strip only the leading prefix; the actual
+        //    title (and any trailing footnote) stays.
         text = text.replace(
             /^\.?\[#([A-Za-z0-9_.:-]+)\s+\.anchor\]####(.+)$/gm,
-            (match, _id, caption) => `.${caption.trim()}`
+            (match, _id, caption) => {
+                const cleaned = cleanCaption(caption);
+                return cleaned ? `.${cleaned}` : '';
+            }
         );
         // Any remaining stray "####"/"###" inline caption markers.
-        text = text.replace(/^\.?\[#([A-Za-z0-9_.:-]+)\s+\.anchor\](#{2,6})(.+)$/gm, '.$3');
+        text = text.replace(
+            /^\.?\[#([A-Za-z0-9_.:-]+)\s+\.anchor\](#{2,6})(.+)$/gm,
+            (match, _id, _hashes, caption) => {
+                const cleaned = cleanCaption(caption);
+                return cleaned ? `.${cleaned}` : '';
+            }
+        );
         text = text.replace(/^(#{2,6})(?=\S)/gm, '');
+
+        // 1a. Plain captions that pandoc already emitted correctly (no
+        //     anchor/hashes) can still carry Word's own label, e.g.
+        //     ".Tabelle : Clientseitige Technologien". Strip it here as well so
+        //     the generated caption is the only one.
+        text = text.replace(/^\.((?:Abbildung|Tabelle)\b[^\n]*)$/gm, (match, caption) => {
+            const cleaned = cleanCaption(caption);
+            return cleaned ? `.${cleaned}` : '';
+        });
+
+        // 1b. Pandoc marks Word's two-column layout tables (a figure next to
+        //     explanatory text) as tables with a header row. Asciidoctor parses
+        //     header cells as inline-only, so a block image and its title inside
+        //     the "header" would be emitted as literal text. When the first row
+        //     starts with an AsciiDoc cell that contains an image, drop the
+        //     header option so the row is parsed as body content and the figure
+        //     renders normally.
+        {
+            const lines = text.split('\n');
+            for (let i = 0; i < lines.length - 2; i++) {
+                if (!/options="header"/.test(lines[i])) continue;
+                if (lines[i + 1] !== '|===' || lines[i + 2] !== 'a|') continue;
+
+                let hasImage = false;
+                for (let j = i + 3; j < lines.length; j++) {
+                    if (lines[j] === '|===' || lines[j] === 'a|') break;
+                    if (/^image:/.test(lines[j])) {
+                        hasImage = true;
+                        break;
+                    }
+                }
+                if (hasImage) lines[i] = lines[i].replace(/options="header",?\s*/, '');
+            }
+            text = lines.join('\n');
+        }
+
+        // 1c. Pandoc sometimes emits a figure as an inline image followed by its
+        //     caption (Word anchored the image). Asciidoctor only creates a
+        //     figure for a *block* image, and a block title has to come before
+        //     the image, so promote the image and move the caption up. This
+        //     also fixes figures inside `a|` table cells.
+        text = text.replace(
+            /^image:(?![:\s])(\S+)\[([^\]]*)\]\s*\n\s*\n(\.\S[^\n]*)$/gm,
+            (match, path, attrs, caption) => `${caption}\nimage::${path}[${attrs}]`
+        );
+
+        // 1d. References in running text that are not links (e.g. changelog
+        //     entries such as "Anpassungen an Abbildung 24") still use Word's
+        //     document-wide number. Map that number through the figure index to
+        //     the figure's page-local number. Link labels are left alone here;
+        //     step 3 rewrites those from their bookmark target.
+        text = text
+            .split('\n')
+            .map((line) => {
+                // Captions are block titles and must keep their title text.
+                if (/^\s*\./.test(line)) return line;
+                return line.replace(
+                    /(?<!\[)(Abbildung\s+)(\*?)(\d+)(\*?)/gi,
+                    (match, prefix, open, number, close) => {
+                        const anchor = figureAnchorByNumber.get(number);
+                        const location = anchor ? figureLocations.get(anchor) : null;
+                        return location ? `${prefix}${open}${location.number}${close}` : match;
+                    }
+                );
+            })
+            .join('\n');
 
         // 2. Drop the generated table of contents lines (link:#x[... link:#x[n]]),
         //    Antora renders its own navigation.
@@ -526,9 +705,11 @@ function convertDocument(doc, moduleName) {
                     .trim();
 
                 // Drop references to docx-internal bookmarks (figures/TOC) that no
-                // longer exist.
+                // longer exist, but renumber figure references to the figure's
+                // page-local number so they match the rendered caption.
                 if (/^_(Toc|Ref)/.test(target)) {
-                    return cleanLabel || '';
+                    const figure = figureLocations.get(target);
+                    return figure ? renumberFigureLabel(cleanLabel, figure.number) : cleanLabel || '';
                 }
 
                 const slug = slugify(target);

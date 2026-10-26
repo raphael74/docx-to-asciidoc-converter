@@ -85,7 +85,14 @@ verify-links.js                 # link/anchor checker
   `1.1`, `1.2`, and the next section is `2`.
 - **Cross-references.** Links that pointed at Word bookmarks (`_Toc…`/`_Ref…`)
   or at figure captions cannot be resolved after conversion and are reduced to
-  their plain link text.
+  their plain link text. Figure references are first renumbered to the figure's
+  page-local number.
+- **Figure and table captions.** Figures are numbered by Asciidoctor per page,
+  restarting at 1 for every chapter page (like section numbering). Because the
+  body text still carries Word's document-wide figure numbers, the generator
+  reads the `Abbildungsverzeichnis` and rewrites every figure reference to the
+  figure's page-local number. Table captions use `table-caption: Tabelle`;
+  Word's own `Tabelle :` label is stripped during conversion.
 - **Reference links.** Bracketed document references such as `[SI-ARCH]` are
   linked to the matching entry in the document's `Referenzen` table. The table
   rows get stable `ref-…` anchors, and a front-matter `Referenzen` section is
