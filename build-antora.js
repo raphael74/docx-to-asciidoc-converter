@@ -94,6 +94,138 @@ function uniqueName(base, used) {
 }
 
 // ---------------------------------------------------------------------------
+// Reference table ("Referenzen") and square-bracket references
+// ---------------------------------------------------------------------------
+
+/**
+ * A document's "Referenzen" chapter lists reference names in square brackets in
+ * the first column of a table (e.g. `[SI-ARCH]`). The same names appear in the
+ * body as `++[++SI-ARCH++]++`, which pandoc uses to escape the brackets.
+ *
+ * The first column is the target for those body references, so every row gets
+ * an explicit anchor. Pandoc's own anchor markup (`[#bookmark .anchor]##`) is
+ * not valid AsciiDoc and currently renders as literal text, so it is replaced
+ * by the `[[anchor]]` form. The `ref-` prefix keeps these anchors from
+ * colliding with heading anchors.
+ */
+const REFERENCE_SECTION_RE = /^={2,6}\s+(?:\d+(?:\.\d+)*\s+)?Referenzen\s*$/i;
+const REFERENCE_PARAGRAPH_RE = /^\*Referenzen\*\s*$/i;
+const REFERENCE_ANCHOR_PREFIX = 'ref-';
+
+/**
+ * Finds the references table, rewrites its first-column anchors in `lines`, and
+ * returns the reference name -> { anchor, page } map plus the table extent.
+ * When the section is in the front matter (no chapter page yet), a "Referenzen"
+ * page is added to `chapters` so the links have somewhere to point.
+ */
+function extractReferences(lines, chapters, usedBases) {
+    const sectionStart = lines.findIndex(
+        (line) => REFERENCE_SECTION_RE.test(line) || REFERENCE_PARAGRAPH_RE.test(line)
+    );
+    if (sectionStart === -1) return null;
+
+    const tableStart = lines.findIndex((line, i) => i > sectionStart && /^\|===\s*$/.test(line));
+    if (tableStart === -1) return null;
+
+    let tableEnd = -1;
+    for (let i = tableStart + 1; i < lines.length; i++) {
+        if (/^\|===\s*$/.test(lines[i])) {
+            tableEnd = i;
+            break;
+        }
+    }
+    if (tableEnd === -1) return null;
+
+    const refs = new Map();
+    const usedAnchors = new Set();
+
+    for (let i = tableStart + 1; i < tableEnd; i++) {
+        const line = lines[i];
+        if (!line.startsWith('|') || !line.includes('++[++')) continue;
+
+        // Drop pandoc's `[#bookmark .anchor]##` prefix (which also swallows the
+        // opening `##` of its inline span) and put a real anchor in its place.
+        const withoutAnchor = line.replace(/\[#[^\s\]]+\s*\.anchor\]#*/g, '');
+        const m = /^\|\s*\+\+\[\+\+(.+?)\+\+\]\+\+/.exec(withoutAnchor);
+        if (!m) continue;
+
+        const name = m[1].trim();
+        if (!name) continue;
+
+        let anchor = `${REFERENCE_ANCHOR_PREFIX}${asciiSlug(name)}`;
+        if (anchor === REFERENCE_ANCHOR_PREFIX) anchor = `${REFERENCE_ANCHOR_PREFIX}${i}`;
+        if (usedAnchors.has(anchor)) {
+            let n = 2;
+            while (usedAnchors.has(`${anchor}-${n}`)) n++;
+            anchor = `${anchor}-${n}`;
+        }
+        usedAnchors.add(anchor);
+
+        refs.set(name, {anchor});
+        lines[i] = withoutAnchor.replace(/^(\|\s*)/, `$1[[${anchor}]]`);
+    }
+
+    if (refs.size === 0) return null;
+
+    let chapter = chapters.find((c) => sectionStart >= c.startLine && sectionStart < c.endLine);
+    if (!chapter) {
+        // A front-matter reference section is not covered by any chapter, and
+        // the pipeline only publishes chapters. Give it its own page so the
+        // linked table entries exist in the built site.
+        chapter = {
+            index: chapters.length + 1,
+            startLine: sectionStart,
+            endLine: tableEnd + 1,
+            title: 'Referenzen',
+            base: uniqueName(asciiSlug('Referenzen') || 'referenzen', usedBases),
+            number: null,
+            anchor: slugify('Referenzen'),
+            synthetic: true,
+        };
+        chapters.push(chapter);
+    }
+
+    for (const entry of refs.values()) entry.page = chapter.base;
+    return {refs, tableStart, tableEnd, chapter};
+}
+
+/** Builds a link to a reference table row, keeping the square brackets visible. */
+function referenceLink(name, chapterBase, refs) {
+    const entry = refs.get(name);
+    if (!entry) return null;
+
+    const label = `++[++${name}++]++`;
+    if (entry.page === chapterBase) return `<<${entry.anchor},${label}>>`;
+    return `xref:${entry.page}.adoc#${entry.anchor}[${label}]`;
+}
+
+/**
+ * Rewrites bracketed reference names in `lines` to links to their row in the
+ * references table. Handles both bare references (`++[++SI-ARCH++]++`) and
+ * pandoc's wrappers around Word hyperlinks
+ * (`link:#SIARCH[++[++SI-ARCH++]++]`,
+ * `++[++link:#SW_ARCH[SW-ARCH]++]++`). Existing hyperlinks whose label is a
+ * reference name are folded in as well. The table itself is left untouched.
+ */
+const REFERENCE_LINK_RE =
+    /(?:\+\+\[\+\+link:#[^\s\[]+\[([^\[\]]+)\]\+\+\]\+\+|link:#[^\s\[]+\[\+\+\[\+\+([^\[\]]+)\+\+\]\+\+\]|\+\+\[\+\+([^\[\]]+)\+\+\]\+\+|link:#[^\s\[]+\[([^\[\]]+)\])/g;
+
+function linkifyReferences(lines, chapters, refs, tableStart, tableEnd, frontMatterPage) {
+    for (let i = 0; i < lines.length; i++) {
+        if (i > tableStart && i < tableEnd) continue; // the references table itself
+
+        const chapter = chapters.find((c) => i >= c.startLine && i < c.endLine);
+        const pageBase = chapter ? chapter.base : frontMatterPage;
+        if (!pageBase || (!lines[i].includes('++[++') && !lines[i].includes('link:#'))) continue;
+
+        lines[i] = lines[i].replace(REFERENCE_LINK_RE, (match, wrapped, worded, bare, plain) => {
+            const name = (wrapped || worded || bare || plain || '').trim();
+            return referenceLink(name, pageBase, refs) || match;
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Discover the documents to convert
 // ---------------------------------------------------------------------------
 
@@ -264,6 +396,11 @@ function convertDocument(doc, moduleName) {
         };
     });
 
+    // The references table is also a source of links for the body: every
+    // bracketed reference name is linked to its row. This runs before the
+    // heading plan so a front-matter references section can add a page.
+    const references = extractReferences(lines, chapters, usedBases);
+
     // Build a single plan for every heading: its final anchor and display label.
     // Using one plan for the page body and the navigation keeps them consistent.
     //
@@ -308,6 +445,20 @@ function convertDocument(doc, moduleName) {
             if (!heading) continue;
             registerHeading(heading.title, ch.base, heading.anchor);
         }
+    }
+
+    // Link square-bracket references in the body to the table rows found above.
+    // This has to happen after the heading plan is built (so the `Referenzen`
+    // page is known) and before the pages are written (they slice `lines`).
+    if (references) {
+        linkifyReferences(
+            lines,
+            chapters,
+            references.refs,
+            references.tableStart,
+            references.tableEnd,
+            references.chapter.synthetic ? references.chapter.base : null
+        );
     }
 
     // -------------------------------------------------------------------------

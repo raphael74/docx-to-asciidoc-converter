@@ -86,3 +86,7 @@ verify-links.js                 # link/anchor checker
 - **Cross-references.** Links that pointed at Word bookmarks (`_Toc…`/`_Ref…`)
   or at figure captions cannot be resolved after conversion and are reduced to
   their plain link text.
+- **Reference links.** Bracketed document references such as `[SI-ARCH]` are
+  linked to the matching entry in the document's `Referenzen` table. The table
+  rows get stable `ref-…` anchors, and a front-matter `Referenzen` section is
+  published as its own page so those links have a target.

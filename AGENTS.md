@@ -130,6 +130,14 @@ For each document, in order, it:
    level-0 title), attaches explicit
    `[#anchor]` IDs, rewrites cross-references, and rewrites image paths. All
    pages of a document share one module, so xrefs need no module prefix.
+4b. **Links square-bracket references.** It reads the document's `Referenzen`
+   table, gives every row a `[[ref-<name>]]` anchor (replacing pandoc's broken
+   `[#bookmark .anchor]##` markup, which renders as literal text), and rewrites
+   each `++[++NAME++]++` in the body whose `NAME` matches a row to a link to
+   that row. Existing Word hyperlinks to the old bookmark
+   (`link:#BOOKMARK[++[++NAME++]++]`) are folded into the same link. If the
+   references table is in the front matter instead of a `==`/`===` chapter, a
+   standalone `Referenzen` page is generated for it so the links resolve.
 5. **Generates** the module's `nav.adoc` (main pages only, under a `.Title`
    group heading), its `index.adoc` landing page, and copies
    `destination/<name>/media` into the module's `images/`.
