@@ -1,0 +1,35 @@
+# Configuration for the Antora PDF extension used by antora-playbook-pdf.yml.
+#
+# Asciidoctor PDF is a Ruby application. This project only requires Node.js and
+# pandoc, so the PDF is rendered by the official Asciidoctor container (see
+# asciidoctor-pdf-docker.sh) instead. If you have Ruby with the `asciidoctor-pdf`
+# gem installed, replace the build command with:
+#
+#   build:
+#     command: asciidoctor-pdf --sourcemap
+#
+# (You can then drop `process_limit`.)
+assembly:
+  # One assembly per top-level entry in modules/ROOT/pdf-nav.adoc. build-antora.js
+  # puts one entry per document in that nav, so this produces one PDF per DOCX.
+  root_level: 1
+  # pdf-nav.adoc already starts every document with its landing page; do not
+  # add the ROOT component's start page as an extra PDF.
+  insert_start_page: false
+  # Keep the chapter/section hierarchy in the PDF outline. A document's landing
+  # page becomes the preface, and its chapters become chapters of the book.
+  section_merge_strategy: enclose
+  root_page_style: preface
+  doctype: book
+
+build:
+  # The build directory doubles as the output directory: the playbook has no
+  # output destinations, so no HTML site is published.
+  dir: ./build/pdf
+  clean: true
+  # Mount the project directory so the container can read the generated
+  # assembly/images and write the PDF. Run as the current user so the output is
+  # not owned by root and `clean: true` can remove it on the next build. One
+  # process at a time avoids concurrent writes through the mount.
+  command: ./asciidoctor-pdf-docker.sh --sourcemap
+  process_limit: 1

@@ -11,6 +11,16 @@
     "@antora/user-require-helper" "~3.0"
     "@asciidoctor/core" "~2.2"
 
+"@antora/assembler@1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@antora/assembler/-/assembler-1.0.1.tgz#83d3c1634a054d835a8adfc2d3f6bbd663fccc7b"
+  integrity sha512-5nwThWt8OZMacpsszGlzzkXbnDIaHkerzo7IX4RgTtqYhazyrIwpF0HFCasIiya6AnRj0ScIZvZ2yAMYsB+Xiw==
+  dependencies:
+    "@antora/expand-path-helper" "~3.0"
+    "@antora/run-command-helper" "~1.1"
+    "@asciidoctor/reducer" "~1.1"
+    js-yaml "~5.4"
+
 "@antora/cli@^3.2.1":
   version "3.2.1"
   resolved "https://registry.yarnpkg.com/@antora/cli/-/cli-3.2.1.tgz#060e0ff4973c283868940eba1da6eef61e9aac5a"
@@ -106,6 +116,13 @@
     "@antora/logger" "3.2.1"
     handlebars "~4.7"
 
+"@antora/pdf-extension@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@antora/pdf-extension/-/pdf-extension-1.0.1.tgz#c2d247eafaf4b11698e70bcd6bf16cf302f65276"
+  integrity sha512-XqYbEmXYOFc0PU6r5a4hX6gB8goNFCHxYmYalf5DTeHCMMnqznJOg7qDSSVg1A1nX4CtPwSvezYUJKHKPQWDrA==
+  dependencies:
+    "@antora/assembler" "1.0.1"
+
 "@antora/playbook-builder@3.2.1":
   version "3.2.1"
   resolved "https://registry.yarnpkg.com/@antora/playbook-builder/-/playbook-builder-3.2.1.tgz#68666c24ec51d41267fcf42fd645194f6c11aad7"
@@ -123,6 +140,11 @@
   dependencies:
     "@antora/content-classifier" "3.2.1"
     vinyl "~3.0"
+
+"@antora/run-command-helper@~1.1":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@antora/run-command-helper/-/run-command-helper-1.1.0.tgz#969d6b24a4a579818fd312514854cf8f695c83cf"
+  integrity sha512-7yII///5wEVrv3em3IGFd5B0ihe7chFDTnsdqvMNObCCQRKT320lgtavibT+1nSiAna7izHTGDAhT4JS9jvH0w==
 
 "@antora/site-generator@^3.2.1":
   version "3.2.1"
@@ -190,6 +212,11 @@
   dependencies:
     asciidoctor-opal-runtime "0.3.4"
     unxhr "~1.2"
+
+"@asciidoctor/reducer@~1.1":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@asciidoctor/reducer/-/reducer-1.1.2.tgz#4ff8a251b81d68e8f8d5405454f523a7f041d2e8"
+  integrity sha512-TlCkQJZU5TGts6kwUrpmE4R6FkoDPPe+DaW/GYF2BdOSbdmL8f6t7D4hPZRAb4fMMGKhSNHcZv1aYGR64QIVnA==
 
 "@iarna/toml@~2.2":
   version "2.2.5"

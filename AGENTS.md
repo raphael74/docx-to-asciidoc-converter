@@ -9,10 +9,19 @@ A documentation pipeline. It takes every Word document (`*.docx`) in `source/`
 a static HTML site using [Antora](https://antora.org). Each document becomes
 its own Antora module.
 
-The pipeline has four stages:
+A separate PDF playbook exports the same generated modules as one PDF per
+document (see [PDF export](#pdf-export) below).
+
+The HTML pipeline has four stages:
 
 ```
 source/*.docx  --pandoc-->  destination/<name>/<name>.adoc  --build-antora.js-->  antora/modules/<module>/**  --Antora-->  build/site/**
+```
+
+The PDF export reuses the generated modules:
+
+```
+antora/modules/<module>/**  --Antora + Assembler + Asciidoctor PDF-->  build/pdf/<component>/<version>/_exports/*.pdf
 ```
 
 ## The one rule that matters most
@@ -26,7 +35,8 @@ source/*.docx  --pandoc-->  destination/<name>/<name>.adoc  --build-antora.js-->
 | `antora/modules/` (all modules, their `pages/`, `nav.adoc`, `images/`)                | Generated.                                                                              |
 | `build/`                                                                              | Generated. Git-ignored.                                                                 |
 | `convert-to-asciidoc.sh`, `build-antora.js`, `verify-links.js`, `antora-playbook.yml` | Hand-edited code.                                                                       |
-| `antora/antora.yml`                                                                   | Hand-edited, **except its `nav:` list**, which `build-antora.js` rewrites on every run. |
+| `antora-playbook-pdf.yml`, `antora-assembler-pdf.yml`, `asciidoctor-pdf-docker.sh`    | Hand-edited code for the PDF export.                                                    |
+| `antora/antora.yml`                                                                   | Hand-edited, **except its `nav:` and `ext.assembler.nav` lists**, which `build-antora.js` rewrites on every run. |
 
 Never fix a content problem by editing files under `destination` or
 `antora/modules` — the next `yarn build` overwrites them. Change the
@@ -36,8 +46,9 @@ DOCX, or change the script that generates the file, instead.
 
 ```sh
 yarn install          # once
-yarn build            # convert -> split -> build site -> verify (the full pipeline)
+yarn build            # convert -> split -> build site -> verify (the full HTML pipeline)
 yarn preview          # build, then serve build/site/ in a browser
+yarn pdf              # convert -> split -> build PDFs into build/pdf/
 ```
 
 Individual stages, in order:
@@ -46,6 +57,7 @@ Individual stages, in order:
 yarn convert          # source/*.docx -> destination/<name>/<name>.adoc + destination/<name>/media/ (pandoc)
 yarn split            # destination/<name>/<name>.adoc -> antora/modules/<module>/ (build-antora.js)
 yarn build:site       # Antora -> build/site/
+yarn build:pdf        # Antora + PDF extension -> build/pdf/ (requires yarn split first)
 yarn verify           # check every anchor and xref in every module resolves (verify-links.js)
 yarn serve            # serve the already-built site
 ```
@@ -53,7 +65,8 @@ yarn serve            # serve the already-built site
 `yarn build` is the definition of "done": it must finish with
 `All anchors and xrefs resolve correctly (N modules checked).` and no Antora
 warnings. Always run it after any change to the scripts, the playbook, or a
-DOCX.
+DOCX. Run `yarn pdf` as well when you touch the PDF playbook, the assembler
+configuration, or the PDF navigation generation in `build-antora.js`.
 
 ## Environment requirements
 
@@ -67,6 +80,12 @@ DOCX.
   content source that is not a git repo. Do not delete or re-initialise `.git`.
   The playbook uses `branches: HEAD`, so uncommitted working-tree files are
   used directly (Antora "author mode") — no commit needed before building.
+- For the PDF export (`yarn pdf`), either Docker (the default command runs
+  Asciidoctor PDF from `asciidoctor/docker-asciidoctor` via
+  `asciidoctor-pdf-docker.sh`) or Ruby with the `asciidoctor-pdf` gem installed
+  locally. The HTML pipeline does not need either. If you use a local Ruby,
+  change `build.command` in `antora-assembler-pdf.yml` to
+  `asciidoctor-pdf --sourcemap`.
 
 ## Output layout
 
@@ -77,15 +96,20 @@ destination/
     └── media/                      # images extracted by pandoc
 
 antora/
-├── antora.yml                      # nav: list is maintained by build-antora.js
+├── antora.yml                      # nav: and ext.assembler.nav are maintained by build-antora.js
 └── modules/
     ├── ROOT/                       # landing page linking to all documents
-    │   ├── nav.adoc
+    │   ├── nav.adoc                # HTML navigation
+    │   ├── pdf-nav.adoc            # one entry per document, used by the PDF export
     │   └── pages/index.adoc
     └── <module>/                   # one module per document
         ├── nav.adoc
         ├── images/
         └── pages/                  # index.adoc + one page per chapter
+
+build/
+├── site/<component>/<version>/     # HTML site
+└── pdf/<component>/<version>/_exports/*.pdf   # one PDF per document
 ```
 
 In the built site, `ROOT` is published at
@@ -140,16 +164,26 @@ For each document, in order, it:
    standalone `Referenzen` page is generated for it so the links resolve.
 5. **Generates** the module's `nav.adoc` (main pages only, under a `.Title`
    group heading), its `index.adoc` landing page, and copies
-   `destination/<name>/media` into the module's `images/`.
+   `destination/<name>/media` into the module's `images/`. The landing page's
+   chapter list is an ordered list, so it uses the title without Word's fixed
+   chapter number (the list marker supplies it); `nav.adoc` and the page titles
+   keep the number.
 
 Then, once for all documents, it:
 
-6. **Generates the `ROOT` module**: a `nav.adoc` and an `index.adoc` that lists
-   every document as `xref:<module>:index.adoc[Title]`.
+6. **Generates the `ROOT` module**: a `nav.adoc`, an `index.adoc` that lists
+   every document as `xref:<module>:index.adoc[Title]`, and a `pdf-nav.adoc`.
+   The PDF nav uses one top-level entry per document (its landing page) with the
+   chapters as children, so the Assembler can create one PDF per document. Its
+   chapter labels omit Word's fixed number because Asciidoctor numbers chapters
+   in the PDF itself.
 7. **Updates `antora/antora.yml`.** Antora only picks up nav files that are
    listed there, so the `nav:` list is rewritten to contain `ROOT` plus every
-   module. Everything else in an existing file is left untouched. If the file
-   does not exist it is created from the `COMPONENT_*` constants.
+   module, and the `ext.assembler.nav` list is pointed at `ROOT/pdf-nav.adoc`.
+   Everything else in an existing file is left untouched. If the file does not
+   exist it is created from the `COMPONENT_*` constants. The assembler profile is
+   written in its map form; a descriptor that uses the list form (named profiles)
+   is left alone.
 
 **Module names** are the ASCII slug of the folder name, e.g.
 `VG_T_Referenzarchitektur_Software_v5.7` →
@@ -175,6 +209,27 @@ module-qualified form `xref:module:page.adoc`) or `<<anchor>>` in any page or
 and version from `antora/antora.yml` to locate the site folder. It exits
 non-zero on failure, which fails `yarn build`.
 
+### 4. PDF export
+
+`yarn pdf` runs `convert` and `split` and then `antora antora-playbook-pdf.yml`.
+`antora-playbook-pdf.yml` reuses the generated modules but registers the
+`@antora/pdf-extension`; it has `output.destinations: []`, so Antora does not
+publish an HTML site. The extension (via Antora Assembler) reads
+`modules/ROOT/pdf-nav.adoc`, creates one assembly per document, and converts
+each one with Asciidoctor PDF. `antora-assembler-pdf.yml` sets
+`root_level: 1`, `insert_start_page: false`, `section_merge_strategy: enclose`
+and `root_page_style: preface`, which is what turns the nav into one book per
+document instead of one book for the whole component version.
+
+Asciidoctor PDF is Ruby-only; the default `build.command` calls
+`asciidoctor-pdf-docker.sh`, which runs it from the official
+`asciidoctor/docker-asciidoctor` image as the host user. The wrapper is needed
+because Assembler does not use a shell, and because a root-owned `build/pdf`
+would make the next `clean`/overwrite fail. PDFs end up in
+`build/pdf/<component>/<version>/_exports/`. Unlike the HTML site there is no
+per-page numbering reset: a chapter page becomes a numbered chapter of the book
+and its sections are numbered `1.1`, `1.2`, and so on.
+
 ## Conventions and constraints
 
 - **ASCII file names, Unicode anchors.** Page file names and module names must
@@ -189,7 +244,7 @@ non-zero on failure, which fails `yarn build`.
   duplicated titles from colliding.
 - **Same-page references** are written as `<<anchor,label>>`. (The form
   `<<anchor>>[label]` is wrong: it renders a literal `[label]` after the link.)
-- **`idprefix` / `idseparator` are load-bearing.** `antora-playbook.yml` sets
+- **`idprefix` / `idseparator` are load-bearing.** Both playbooks set
   `idprefix: ''` and `idseparator: '-'` so Asciidoctor's generated IDs match the
   slugs `build-antora.js` writes into xrefs. Changing these silently breaks
   every internal link (and will be caught by `yarn verify`).
@@ -198,7 +253,9 @@ non-zero on failure, which fails `yarn build`.
   page are **not** stored — they come from Asciidoctor's `sectnums`, which
   restarts at 1 for each page, so a page's first section is `1`, its subsections
   `1.1`, `1.2`, and the next section `2`. If you touch numbering, keep these two
-  mechanisms separate.
+  mechanisms separate. In the PDF, the page becomes a chapter of a book and is
+  numbered by Asciidoctor, so `pdf-nav.adoc` uses the un-numbered title (using
+  the fixed number there would render "Chapter 1. 1 ...").
 - **Navigation shows main pages only** (a module's landing page + its
   chapters). Do not add section/subsection entries back into a `nav.adoc`.
 - **Style.** Plain Node.js (CommonJS, `require`), no build step, no
@@ -244,6 +301,11 @@ non-zero on failure, which fails `yarn build`.
   `VG_T_Referenzarchitektur_Software_v5.7.docx`. A newly added document may
   have a different ToC shape or bookmark naming, so check its warnings and
   built pages the first time it goes through the pipeline.
+- **Asciidoctor PDF cannot embed GIF images** without the `prawn-gmagick` gem
+  (the Docker image used by `yarn pdf` does not include it). The PDF build
+  prints `GIF image format not supported` and falls back to the image's alt
+  text; the HTML build renders the GIF normally. Convert GIFs to PNG in the
+  DOCX (or install `prawn-gmagick`) if they must appear in the PDF.
 
 ## Known security advisories (accepted risk — do not "fix" blindly)
 
@@ -284,7 +346,11 @@ non-zero on failure, which fails `yarn build`.
    headings, numbering and images, and check that the landing page
    (`build/site/software-referenzarchitektur/5.7/index.html`) lists every
    document.
-4. If you changed generated files, they are part of the diff — re-commit them
+4. If you touched the PDF playbook, `antora-assembler-pdf.yml`, or the PDF nav
+   generation, run `yarn pdf` and check that `build/pdf/<component>/<version>/_exports/`
+   contains one PDF per document with correct chapter titles/numbering (no
+   doubled chapter numbers) and that no new warnings appear.
+5. If you changed generated files, they are part of the diff — re-commit them
    rather than leaving the tree dirty.
 
 ## If you find something ambiguous

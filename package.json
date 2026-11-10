@@ -8,15 +8,18 @@
     "convert": "./convert-to-asciidoc.sh",
     "split": "node build-antora.js",
     "build:site": "antora antora-playbook.yml",
+    "build:pdf": "antora antora-playbook-pdf.yml",
     "verify": "node verify-links.js",
     "build": "yarn convert && yarn split && yarn build:site && yarn verify",
+    "pdf": "yarn convert && yarn split && yarn build:pdf",
     "serve": "http-server build/site -o",
     "preview": "yarn build && yarn serve"
   },
   "devDependencies": {
     "@antora/cli": "^3.2.1",
-    "@antora/site-generator": "^3.2.1",
     "@antora/lunr-extension": "latest",
+    "@antora/pdf-extension": "^1.0.1",
+    "@antora/site-generator": "^3.2.1",
     "http-server": "^14.1.1"
   }
 }

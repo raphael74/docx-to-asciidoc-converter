@@ -1,0 +1,54 @@
+# Playbook for the PDF export. It uses the same generated Antora modules as the
+# HTML site (antora-playbook.yml), but instead of publishing a website it runs
+# the Antora PDF extension, which assembles each document into a single AsciiDoc
+# file and converts it with Asciidoctor PDF.
+#
+# Run `yarn pdf` (or `yarn split && yarn build:pdf`) after changing the DOCX
+# files. The PDFs are written to build/pdf/.
+site:
+  title: Referenzarchitekturen
+  start_page: referenzarchitekturen:ROOT:index.adoc
+
+content:
+  sources:
+    - url: .
+      start_path: antora
+      branches: HEAD
+      # See antora-playbook.yml: the pages are generated on every build.
+      edit_url: false
+
+ui:
+  # The UI is not part of the PDF, but Antora still loads the bundle while
+  # generating the site. Reusing the HTML playbook's bundle keeps both builds
+  # on the same version.
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+
+asciidoc:
+  attributes:
+    # Keep the IDs, numbering and German captions identical to the HTML site.
+    idprefix: ''
+    idseparator: '-'
+    sectanchors: ''
+    sectids: ''
+    sectnums: ''
+    sectnumlevels: 5
+    table-caption: Tabelle
+    figure-caption: Abbildung
+
+antora:
+  extensions:
+    # Configuration (one PDF per document, Docker/local command) lives in
+    # antora-assembler-pdf.yml next to this file.
+    - require: '@antora/pdf-extension'
+
+output:
+  # The PDFs are generated into the Assembler build directory (build/pdf).
+  # No HTML site is published: this playbook exists to produce the PDFs.
+  destinations: []
+  clean: true
+
+runtime:
+  log:
+    # Fail on Antora warnings, like the HTML build.
+    failure_level: warn

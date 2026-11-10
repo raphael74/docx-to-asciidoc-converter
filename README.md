@@ -36,15 +36,46 @@ To preview the result with a local web server:
 yarn preview
 ```
 
+## PDF output
+
+`yarn pdf` runs the same conversion and splitting steps as `yarn build`, then
+renders each document to a PDF with the [Antora PDF extension][antora-pdf]:
+
+```sh
+yarn pdf
+```
+
+The PDFs are written to
+`build/pdf/referenzarchitekturen/5.7/_exports/` (one file per document). The
+PDF build uses the generated modules from `antora/modules`, so it never touches
+the HTML output in `build/site/`.
+
+The PDF playbook is `antora-playbook-pdf.yml`; the PDF-specific options (one PDF
+per document, output directory, converter command) are in
+`antora-assembler-pdf.yml`. Asciidoctor PDF is a Ruby application, and this
+project only requires Node.js and pandoc, so the build runs it from the official
+Asciidoctor container via `asciidoctor-pdf-docker.sh` (Docker must be
+installed). If you have Ruby plus the `asciidoctor-pdf` gem locally, replace the
+`build.command` in `antora-assembler-pdf.yml` with `asciidoctor-pdf --sourcemap`.
+
+> **Images:** Asciidoctor PDF cannot embed GIF images unless the
+> `prawn-gmagick` gem is installed. The PDF build prints a warning for such
+> images and renders their alt text instead. Convert GIFs to PNG in the DOCX
+> (or install `prawn-gmagick`) if they must appear in the PDF.
+
+[antora-pdf]: https://docs.antora.org/assembler/latest/pdf-extension/
+
 ## Individual steps
 
-| Command           | Description                         |
-|-------------------|-------------------------------------|
-| `yarn convert`    | DOCX → AsciiDoc into `destination`  |
-| `yarn split`      | AsciiDoc → Antora component pages   |
-| `yarn build:site` | Antora → HTML in `build/site/`      |
-| `yarn verify`     | Check anchors and cross-references  |
-| `yarn serve`      | Serve `build/site/` on a local port |
+| Command           | Description                                   |
+|-------------------|-----------------------------------------------|
+| `yarn convert`    | DOCX → AsciiDoc into `destination`            |
+| `yarn split`      | AsciiDoc → Antora component pages             |
+| `yarn build:site` | Antora → HTML in `build/site/`                |
+| `yarn build:pdf`  | Antora → PDF in `build/pdf/` (needs `split`)  |
+| `yarn verify`     | Check anchors and cross-references            |
+| `yarn pdf`        | Convert, split and build the PDFs             |
+| `yarn serve`      | Serve `build/site/` on a local port           |
 
 ## Project layout
 
@@ -55,9 +86,13 @@ antora/
   antora.yml                    # Antora component version descriptor
   modules/ROOT/
     nav.adoc                    # generated site navigation
+    pdf-nav.adoc                # generated per-document PDF navigation
     pages/                      # one .adoc page per chapter (generated)
     images/                     # images extracted from the DOCX (generated)
-antora-playbook.yml             # Antora site configuration
+antora-playbook.yml             # Antora HTML site configuration
+antora-playbook-pdf.yml         # Antora PDF export configuration
+antora-assembler-pdf.yml        # PDF extension options (one PDF per document)
+asciidoctor-pdf-docker.sh       # runs Asciidoctor PDF from the Docker image
 convert-to-asciidoc.sh          # DOCX → AsciiDoc (pandoc)
 build-antora.js                 # AsciiDoc → Antora pages
 verify-links.js                 # link/anchor checker
