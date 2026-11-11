@@ -36,6 +36,7 @@ antora/modules/<module>/**  --Antora + Assembler + Asciidoctor PDF-->  build/pdf
 | `build/`                                                                              | Generated. Git-ignored.                                                                 |
 | `convert-to-asciidoc.sh`, `build-antora.js`, `verify-links.js`, `antora-playbook.yml` | Hand-edited code.                                                                       |
 | `antora-playbook-pdf.yml`, `antora-assembler-pdf.yml`, `asciidoctor-pdf-docker.sh`    | Hand-edited code for the PDF export.                                                    |
+| `pdf-theme/` (`ejpd-theme.yml`, `ejpd-logo.png`)                                      | Hand-edited Asciidoctor PDF theme and title-page logo.                                  |
 | `antora/antora.yml`                                                                   | Hand-edited, **except its `nav:` and `ext.assembler.nav` lists**, which `build-antora.js` rewrites on every run. |
 
 Never fix a content problem by editing files under `destination` or
@@ -230,6 +231,19 @@ would make the next `clean`/overwrite fail. PDFs end up in
 per-page numbering reset: a chapter page becomes a numbered chapter of the book
 and its sections are numbered `1.1`, `1.2`, and so on.
 
+The PDF layout is a hand-edited Asciidoctor PDF theme in
+`pdf-theme/ejpd-theme.yml`, with the first-page logo (`pdf-theme/ch-logo.png`)
+extracted from the Word templates. It approximates the Word look: Noto Sans
+(the bundled Arial stand-in), black bold headings, gray (`D9D9D9`) table header
+rows, black table borders, blue underlined links, and a running header/footer.
+`antora-playbook-pdf.yml` enables it with the `pdf-theme: ejpd` and
+`pdf-themesdir: pdf-theme` attributes, and also sets `chapter-signifier: ''`
+(Word-style "1 Title" instead of "Chapter 1. Title") and
+`assembly-overview-title: Inhaltsverzeichnis` (the preface is the Word table of
+contents). The theme is only loaded by the PDF playbook; the HTML site is
+unaffected. If you change the theme, run `yarn pdf` and check the PDFs for
+layout regressions (overlapping header text, overflowing table cells).
+
 ## Conventions and constraints
 
 - **ASCII file names, Unicode anchors.** Page file names and module names must
@@ -346,10 +360,11 @@ and its sections are numbered `1.1`, `1.2`, and so on.
    headings, numbering and images, and check that the landing page
    (`build/site/software-referenzarchitektur/5.7/index.html`) lists every
    document.
-4. If you touched the PDF playbook, `antora-assembler-pdf.yml`, or the PDF nav
-   generation, run `yarn pdf` and check that `build/pdf/<component>/<version>/_exports/`
-   contains one PDF per document with correct chapter titles/numbering (no
-   doubled chapter numbers) and that no new warnings appear.
+4. If you touched the PDF playbook, `antora-assembler-pdf.yml`, the PDF theme,
+   or the PDF nav generation, run `yarn pdf` and check that
+   `build/pdf/<component>/<version>/_exports/` contains one PDF per document
+   with correct chapter titles/numbering (no doubled chapter numbers), no
+   overlapping header text, no truncated table cells, and no new warnings.
 5. If you changed generated files, they are part of the diff — re-commit them
    rather than leaving the tree dirty.
 

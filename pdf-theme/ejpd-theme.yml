@@ -1,0 +1,185 @@
+# Asciidoctor PDF theme for the EJPD Referenzarchitektur documents.
+#
+# It approximates the look of the Word templates in source/*.docx: a sans-serif
+# body (Arial in Word), black bold headings, gray table header rows, black table
+# borders, and the document title / department in the running header.
+#
+# Loaded by antora-playbook-pdf.yml through:
+#   pdf-theme: ejpd
+#   pdf-themesdir: pdf-theme
+#
+# The theme extends Asciidoctor PDF's default theme, so only the differences
+# from the default are listed here. The sizes and margins below are derived
+# from the Word styles:
+#   Normal    Arial 11pt, line spacing 13pt
+#   Heading 1 Arial bold 21pt, 18pt before / 12pt after
+#   Heading 2 Arial bold 14pt, 12pt before / 6pt after
+#   Heading 3 Arial bold 12pt, 12pt before / 6pt after
+#   Heading 4 Arial bold 11pt, 12pt before / 6pt after
+#   Caption   Arial bold 10pt
+#   Table     Table Grid borders, 10pt body, gray (D9D9D9) header row
+#   Page      A4, top 1.06in, right 0.59in, bottom 0.63in, left 1.18in
+#   Header    Arial 7.5pt (document title left, department right)
+#   Footer    Arial 8pt (classification left, page X / Y right)
+
+extends: default
+
+font:
+  catalog:
+    merge: true
+    # Asciidoctor PDF ships Noto Sans, the closest bundled match for Arial.
+    # (Liberation Sans is metric-compatible with Arial, but not bundled with
+    # the gem, so it would only work with extra font files.)
+    Noto Sans:
+      normal: GEM_FONTS_DIR/notosans-regular-subset.ttf
+      bold: GEM_FONTS_DIR/notosans-bold-subset.ttf
+      italic: GEM_FONTS_DIR/notosans-italic-subset.ttf
+      bold_italic: GEM_FONTS_DIR/notosans-bold_italic-subset.ttf
+
+page:
+  size: A4
+  layout: portrait
+  # [top, right, bottom, left]. Slightly relaxed from the Word values, but
+  # keeps the same content width (~6.5in) and the wider left margin.
+  margin: [1.0in, 0.6in, 0.65in, 1.1in]
+  background_color: FFFFFF
+
+base:
+  font_family: Noto Sans
+  font_size: 11
+  font_color: '000000'
+  # Word body text is left-aligned, not justified.
+  text_align: left
+  # 11pt text on a 13pt line, like the Word "Normal" style.
+  line_height: 1.2
+  line_height_length: 13.2
+  border_color: '000000'
+  border_width: 0.5
+
+heading:
+  font_family: Noto Sans
+  font_style: bold
+  font_color: '000000'
+  text_align: left
+  line_height: 1.15
+  # h1 is a part title (book doctype); h2 is a chapter, i.e. Word "Heading 1".
+  h1:
+    font_size: 21
+  h2:
+    font_size: 21
+    margin_top: 18
+    margin_bottom: 12
+    line_height: 1.1
+  h3:
+    font_size: 14
+    margin_top: 12
+    margin_bottom: 6
+  h4:
+    font_size: 12
+    margin_top: 12
+    margin_bottom: 6
+  h5:
+    font_size: 11
+    margin_top: 12
+    margin_bottom: 6
+  h6:
+    font_size: 11
+    font_style: bold_italic
+
+title_page:
+  text_align: left
+  logo:
+    # The logo is the first-page header image extracted from the Word
+    # templates. Width is in points; the image is 1300x425px. The `image:`
+    # prefix is what makes Asciidoctor PDF parse the bracketed attributes.
+    image: 'image:ch-logo.png[width=170]'
+    top: 6%
+    align: left
+  title:
+    # The component title ("Referenzarchitekturen") is generic; hide it so the
+    # document title (rendered as the subtitle) becomes the PDF title.
+    display: none
+    # Still used to position the subtitle: hide the title, but keep the gap.
+    top: 26%
+  subtitle:
+    font_size: 21
+    font_style: bold
+    font_color: '000000'
+    line_height: 1.15
+    margin_top: 0
+  revision:
+    font_size: 14
+    font_style: bold
+    font_color: '000000'
+    margin_top: 18
+
+# Word hyperlinks are blue and underlined.
+link:
+  font_color: '0000FF'
+  text_decoration: underline
+
+# Word captions are bold 10pt and left-aligned, above the figure/table.
+caption:
+  align: left
+  font_size: 10
+  font_style: bold
+  font_color: '000000'
+  margin_inside: 3
+  margin_outside: 3
+
+table:
+  # "Table Grid" in Word: single 0.5pt black border around and between cells.
+  border_color: '000000'
+  border_width: 0.5
+  grid_width: 0.5
+  cell_padding: 2
+  # Word table cells are 10pt. Keeping them smaller than the 11pt body text
+  # also keeps long table cells from overflowing a page.
+  font_size: 10
+  line_height: 1.1
+  head:
+    # Header rows are shaded gray (D9D9D9) in the Word documents.
+    background_color: D9D9D9
+    font_style: bold
+    border_bottom_width: 0.5
+  body:
+    # No zebra striping in Word.
+    stripe_background_color: FFFFFF
+  foot:
+    background_color: F0F0F0
+
+# Word running header: document title on the left, department on the right.
+header:
+  # Asciidoctor PDF only draws the header when a non-zero height is set.
+  height: 30
+  font_size: 7.5
+  font_color: '000000'
+  line_height: 1
+  border_width: 0
+  recto:
+    left:
+      content: '{document-subtitle}'
+    right:
+      content: 'EJPD · Informatik Service Center ISC-EJPD'
+  verso:
+    left:
+      content: '{document-subtitle}'
+    right:
+      content: 'EJPD · Informatik Service Center ISC-EJPD'
+
+# Word running footer: classification/version on the left, page X / Y on the right.
+footer:
+  font_size: 8
+  font_color: '000000'
+  line_height: 1
+  border_width: 0
+  recto:
+    left:
+      content: 'Nicht klassifiziert · V {revnumber}'
+    right:
+      content: '{page-number} / {page-count}'
+  verso:
+    left:
+      content: 'Nicht klassifiziert · V {revnumber}'
+    right:
+      content: '{page-number} / {page-count}'

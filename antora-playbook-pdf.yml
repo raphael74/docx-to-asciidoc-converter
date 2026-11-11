@@ -35,6 +35,17 @@ asciidoc:
     sectnumlevels: 5
     table-caption: Tabelle
     figure-caption: Abbildung
+    # Use the EJPD-styled theme in pdf-theme/ejpd-theme.yml. The themes
+    # directory is resolved relative to the converter's working directory,
+    # which is the project root (see asciidoctor-pdf-docker.sh).
+    pdf-theme: ejpd
+    pdf-themesdir: pdf-theme
+    # Word numbers chapters as "1 Title" instead of Asciidoctor PDF's default
+    # "Chapter 1. Title".
+    chapter-signifier: ''
+    # The generated landing page is used as the PDF preface. Word calls the
+    # equivalent page "Inhaltsverzeichnis" rather than "Overview".
+    assembly-overview-title: Inhaltsverzeichnis
 
 antora:
   extensions:

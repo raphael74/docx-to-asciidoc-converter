@@ -58,6 +58,15 @@ Asciidoctor container via `asciidoctor-pdf-docker.sh` (Docker must be
 installed). If you have Ruby plus the `asciidoctor-pdf` gem locally, replace the
 `build.command` in `antora-assembler-pdf.yml` with `asciidoctor-pdf --sourcemap`.
 
+The PDF layout is defined by the Asciidoctor PDF theme in
+`pdf-theme/ejpd-theme.yml`. It approximates the Word template: sans-serif body
+text, black bold headings, gray table header rows, blue underlined links, and a
+running header/footer with the document title, department, classification and
+page numbers. The theme extends Asciidoctor PDF's default theme, and
+`pdf-theme/ch-logo.png` is the first-page logo extracted from the DOCX files.
+The playbook points Asciidoctor PDF at the theme with the `pdf-theme` and
+`pdf-themesdir` attributes.
+
 > **Images:** Asciidoctor PDF cannot embed GIF images unless the
 > `prawn-gmagick` gem is installed. The PDF build prints a warning for such
 > images and renders their alt text instead. Convert GIFs to PNG in the DOCX
@@ -93,6 +102,9 @@ antora-playbook.yml             # Antora HTML site configuration
 antora-playbook-pdf.yml         # Antora PDF export configuration
 antora-assembler-pdf.yml        # PDF extension options (one PDF per document)
 asciidoctor-pdf-docker.sh       # runs Asciidoctor PDF from the Docker image
+pdf-theme/
+  ejpd-theme.yml                # Asciidoctor PDF theme (EJPD/Word look)
+  ejpd-logo.png                 # title-page logo extracted from the DOCX
 convert-to-asciidoc.sh          # DOCX → AsciiDoc (pandoc)
 build-antora.js                 # AsciiDoc → Antora pages
 verify-links.js                 # link/anchor checker
