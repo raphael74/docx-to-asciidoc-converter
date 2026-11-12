@@ -175,11 +175,11 @@ footer:
   border_width: 0
   recto:
     left:
-      content: 'Nicht klassifiziert · V {revnumber}'
+      content: 'V {revnumber}'
     right:
       content: '{page-number} / {page-count}'
   verso:
     left:
-      content: 'Nicht klassifiziert · V {revnumber}'
+      content: 'V {revnumber}'
     right:
       content: '{page-number} / {page-count}'

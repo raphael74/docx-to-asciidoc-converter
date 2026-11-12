@@ -49,6 +49,10 @@ asciidoc:
 
 antora:
   extensions:
+    # The Assembler writes the title page date (revdate) as YYYY-MM-DD. This
+    # local extension rewrites it to the DD.MM.YYYY format used on the Word
+    # title pages before the Assembler creates the assemblies.
+    - require: ./pdf-date-extension.js
     # Configuration (one PDF per document, Docker/local command) lives in
     # antora-assembler-pdf.yml next to this file.
     - require: '@antora/pdf-extension'

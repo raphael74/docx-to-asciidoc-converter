@@ -36,6 +36,7 @@ antora/modules/<module>/**  --Antora + Assembler + Asciidoctor PDF-->  build/pdf
 | `build/`                                                                              | Generated. Git-ignored.                                                                 |
 | `convert-to-asciidoc.sh`, `build-antora.js`, `verify-links.js`, `antora-playbook.yml` | Hand-edited code.                                                                       |
 | `antora-playbook-pdf.yml`, `antora-assembler-pdf.yml`, `asciidoctor-pdf-docker.sh`    | Hand-edited code for the PDF export.                                                    |
+| `pdf-date-extension.js`                                                               | Hand-edited Antora extension that formats the PDF title-page date (`revdate`).          |
 | `pdf-theme/` (`ejpd-theme.yml`, `ejpd-logo.png`)                                      | Hand-edited Asciidoctor PDF theme and title-page logo.                                  |
 | `antora/antora.yml`                                                                   | Hand-edited, **except its `nav:` and `ext.assembler.nav` lists**, which `build-antora.js` rewrites on every run. |
 
@@ -243,6 +244,14 @@ rows, black table borders, blue underlined links, and a running header/footer.
 contents). The theme is only loaded by the PDF playbook; the HTML site is
 unaffected. If you change the theme, run `yarn pdf` and check the PDFs for
 layout regressions (overlapping header text, overflowing table cells).
+
+The title page's date comes from the Assembler's `revdate` attribute, which it
+sets to the build date in ISO format (`YYYY-MM-DD`). Asciidoctor PDF renders
+that value verbatim, and neither the Assembler profile nor the PDF theme can
+reformat it. `pdf-date-extension.js` is a small Antora extension, registered
+before `@antora/pdf-extension` in `antora-playbook-pdf.yml`, that rewrites the
+global `revdate` during `playbookBuilt` to the Word/Swiss format `DD.MM.YYYY`.
+Do not replace it with a static attribute: the date must track the build date.
 
 ## Conventions and constraints
 
