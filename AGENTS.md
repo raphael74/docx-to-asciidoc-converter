@@ -245,6 +245,17 @@ contents). The theme is only loaded by the PDF playbook; the HTML site is
 unaffected. If you change the theme, run `yarn pdf` and check the PDFs for
 layout regressions (overlapping header text, overflowing table cells).
 
+Syntax highlighting of `[source,...]` blocks (e.g. Java snippets) is enabled for
+the PDFs by `assembly.attributes.source-highlighter: rouge` in
+`antora-assembler-pdf.yml`. Antora's default `highlight.js` is a browser-side
+highlighter, so Assembler drops it for non-HTML exports; the value must be set
+in the Assembler config, not in the playbook's `asciidoc.attributes`. Rouge is a
+build-time highlighter bundled in the Docker image, and the EJPD theme inherits
+the default theme's code-block styles (`extends: default`). The HTML site keeps
+using `highlight.js` and is unaffected. Do not set `source-highlighter` in
+`antora-playbook-pdf.yml` — it would be stripped from the assemblies and would
+not reach Asciidoctor PDF.
+
 The title page's date comes from the Assembler's `revdate` attribute, which it
 sets to the build date in ISO format (`YYYY-MM-DD`). Asciidoctor PDF renders
 that value verbatim, and neither the Assembler profile nor the PDF theme can

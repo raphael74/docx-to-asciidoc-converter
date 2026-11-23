@@ -21,6 +21,13 @@ assembly:
   section_merge_strategy: enclose
   root_page_style: preface
   doctype: book
+  attributes:
+    # Antora's default source-highlighter (highlight.js) is a client-side
+    # library and is stripped from non-HTML assemblies. Set it here, not in the
+    # playbook, so Assembler passes `-a source-highlighter=rouge` to
+    # asciidoctor-pdf; Rouge is bundled in the Docker image. The EJPD theme
+    # extends the default theme, so its code-block styles are inherited.
+    source-highlighter: rouge
 
 build:
   # The build directory doubles as the output directory: the playbook has no

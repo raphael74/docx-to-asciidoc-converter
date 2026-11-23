@@ -67,6 +67,11 @@ page numbers. The theme extends Asciidoctor PDF's default theme, and
 The playbook points Asciidoctor PDF at the theme with the `pdf-theme` and
 `pdf-themesdir` attributes.
 
+Source blocks such as `[source,java]` are highlighted in the PDFs with Rouge,
+which is configured in `antora-assembler-pdf.yml` (Antora's default
+`highlight.js` only works in the browser). The HTML site keeps using
+`highlight.js`.
+
 > **Images:** Asciidoctor PDF cannot embed GIF images unless the
 > `prawn-gmagick` gem is installed. The PDF build prints a warning for such
 > images and renders their alt text instead. Convert GIFs to PNG in the DOCX
