@@ -330,31 +330,33 @@ Do not replace it with a static attribute: the date must track the build date.
   text; the HTML build renders the GIF normally. Convert GIFs to PNG in the
   DOCX (or install `prawn-gmagick`) if they must appear in the PDF.
 
-## Known security advisories (accepted risk — do not "fix" blindly)
+## Security advisories
 
 - `yarn audit` (Yarn Classic uses the same advisory database as `npm audit`)
-  reports **5 high-severity findings, all from one advisory**:
-  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-  (CVE-2026-93687) — `braces` through 3.0.3 is vulnerable to stack exhaustion
-  from deeply nested brace patterns. It reaches us only via Antora's
-  transitive dependencies (`content-aggregator`/`ui-loader` → `fast-glob` →
-  `micromatch` → `braces`). (The finding count is per dependency path and
-  differs between audit tools; it has always been this one advisory.)
-- **Why it stays:** 3.0.3 is the latest published `braces`; the advisory
-  affects *all* versions and upstream has released no fix, so no audit tool
-  offers one. There is nothing to upgrade to, and pinning a
-  fork of a transitive dependency would create more risk than the advisory
-  itself.
-- **Why it is acceptable here:** it is a build-time DoS in a devDependency.
-  Triggering it requires the glob patterns fed to `braces` to be attacker
-  controlled; every pattern in this pipeline comes from hand-edited repo
-  files (the playbook, Antora internals), so anyone who could craft a
-  malicious glob could already edit the build scripts directly. The
-  published site and its readers are not affected at all.
-- **What to do:** if a `braces` release **> 3.0.3** appears, upgrade and
-  re-run `yarn audit` — the findings should disappear. Do not add Yarn
-  `resolutions`, vendored copies, or patches for this advisory in the
-  meantime; document-and-wait was a deliberate decision.
+  currently reports **0 vulnerabilities**.
+- `package.json` carries one deliberate `resolutions` entry for
+  `follow-redirects: ^1.16.3`. `http-server` → `http-proxy` →
+  `follow-redirects` was flagged high
+  ([GHSA-mrwp-f3q8-3g9p](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p)):
+  1.16.0–1.16.1 discard cross-realm `sensitiveHeaders` arrays, so custom
+  credentials can follow a redirect. `http-proxy` only allows `^1.0.0`, so the
+  patched release has to be forced from the top. Keep the resolution until
+  `http-proxy`/`http-server` depend on a patched range themselves, and re-run
+  `yarn audit` before removing it.
+- An earlier note here recorded 5 high findings from a `braces` advisory
+  ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
+  That advisory is no longer reported for `braces` 3.0.3, so the
+  accepted-risk workaround is gone. If it comes back, do not add a resolution
+  or a patch: there is no fixed `braces` release to pin to, and the finding is
+  a build-time DoS reachable only through hand-edited glob patterns.
+
+## Keeping dependencies current
+
+Run `yarn outdated` before touching dependency versions. `@antora/*`
+packages move together and are pinned with a caret on the same minor
+(`^3.2.3`); `@antora/lunr-extension` intentionally tracks `latest`
+(it only publishes alphas). Bump, then run `yarn install`, `yarn audit` and
+`yarn build`.
 
 ## Before you finish
 

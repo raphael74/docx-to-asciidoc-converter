@@ -16,10 +16,13 @@
     "preview": "yarn build && yarn serve"
   },
   "devDependencies": {
-    "@antora/cli": "^3.2.1",
+    "@antora/cli": "^3.2.3",
     "@antora/lunr-extension": "latest",
     "@antora/pdf-extension": "^1.0.1",
-    "@antora/site-generator": "^3.2.1",
+    "@antora/site-generator": "^3.2.3",
     "http-server": "^14.1.1"
+  },
+  "resolutions": {
+    "follow-redirects": "^1.16.3"
   }
 }
