@@ -334,15 +334,20 @@ Do not replace it with a static attribute: the date must track the build date.
 
 - `yarn audit` (Yarn Classic uses the same advisory database as `npm audit`)
   currently reports **0 vulnerabilities**.
-- `package.json` carries one deliberate `resolutions` entry for
-  `follow-redirects: ^1.16.3`. `http-server` → `http-proxy` →
-  `follow-redirects` was flagged high
-  ([GHSA-mrwp-f3q8-3g9p](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p)):
-  1.16.0–1.16.1 discard cross-realm `sensitiveHeaders` arrays, so custom
-  credentials can follow a redirect. `http-proxy` only allows `^1.0.0`, so the
-  patched release has to be forced from the top. Keep the resolution until
-  `http-proxy`/`http-server` depend on a patched range themselves, and re-run
-  `yarn audit` before removing it.
+- `package.json` carries two deliberate `resolutions` entries:
+  - `follow-redirects: ^1.16.3`. `http-server` → `http-proxy` →
+    `follow-redirects` was flagged high
+    ([GHSA-mrwp-f3q8-3g9p](https://github.com/advisories/GHSA-mrwp-f3q8-3g9p)):
+    1.16.0–1.16.1 discard cross-realm `sensitiveHeaders` arrays, so custom
+    credentials can follow a redirect. `http-proxy` only allows `^1.0.0`, so
+    the patched release has to be forced from the top. Keep the resolution
+    until `http-proxy`/`http-server` depend on a patched range themselves, and
+    re-run `yarn audit` before removing it.
+  - `isomorphic-git: ^1.44.18`. `@antora/content-aggregator` still pins
+    `~1.38`, so Antora's git client would otherwise stay on a much older
+    release; the resolution keeps it on the latest security fixes. Re-check
+    `@antora/content-aggregator`'s range on each Antora bump and drop the
+    resolution once it allows ≥ 1.44.
 - An earlier note here recorded 5 high findings from a `braces` advisory
   ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
   That advisory is no longer reported for `braces` 3.0.3, so the
